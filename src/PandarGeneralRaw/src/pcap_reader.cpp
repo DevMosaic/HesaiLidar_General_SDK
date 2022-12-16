@@ -5,6 +5,7 @@
 #include "pcap_reader.h"
 #include "log.h"
 #include <map>
+#include <functional>
 #include "../util.h"
 
 #define PKT_HEADER_SIZE (42)
@@ -43,21 +44,21 @@ void PcapReader::initTimeIndexMap() {
   m_timeIndexMap.insert(std::pair<string,std::pair<int,int>>("PandarXTM", std::pair<int,int>(811,805)));
 }
 
-void PcapReader::start(boost::function<void(const uint8_t*, const int, double timestamp)> callback) {
+void PcapReader::start(std::function<void(const uint8_t*, const int, double timestamp)> callback) {
   // LOG_FUNC();
   stop();
 
   this->callback = callback;
   loop           = true;
 
-  parse_thr_ = new boost::thread(boost::bind(&PcapReader::parsePcap, this));
+  parse_thr_ = new std::thread(std::bind(&PcapReader::parsePcap, this));
 }
 
 void PcapReader::stop() {
   loop = false;
-
+  
   if (parse_thr_) {
-    parse_thr_->interrupt();
+    // parse_thr_->interrupt();
     parse_thr_->join();
     delete parse_thr_;
     parse_thr_ = NULL;
@@ -101,7 +102,15 @@ void PcapReader::parsePcap() {
     return;
   }
   while (pcap_next_ex(pcapFile, &pktHeader, &packetBuf) >= 0 && loop) {
-    boost::this_thread::interruption_point();
+    // std::this_thread::interruption_point();
+    if(loop_pcap_thread_exit_.load()){
+      loop_pcap_thread_exit_ = false;
+      if (pcapFile != NULL) {
+        pcap_close(pcapFile);
+        pcapFile = NULL;
+      }
+      return;
+    }
     const uint8_t *packet = packetBuf + PKT_HEADER_SIZE;
     int pktSize = pktHeader->len - PKT_HEADER_SIZE;
     double time = getNowTimeSec();

@@ -17,7 +17,7 @@
 #ifndef INCLUDE_POINT_TYPES_H_
 #define INCLUDE_POINT_TYPES_H_
 
-#include <pcl/point_types.h>
+#include <pcl/point_cloud.h>
 
 struct PointXYZIT {
   PCL_ADD_POINT4D   //添加pcl里xyz

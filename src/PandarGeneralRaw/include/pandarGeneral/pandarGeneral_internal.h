@@ -17,15 +17,13 @@
 #ifndef SRC_PANDARGENERAL_INTERNAL_H_
 #define SRC_PANDARGENERAL_INTERNAL_H_
 
-#include <pcl/io/pcd_io.h>
 #include <pcl/point_types.h>
 #include <pthread.h>
 #include <semaphore.h>
 
 #include <list>
 #include <string>
-
-#include <boost/function.hpp>
+#include <atomic>
 
 #include "pandarGeneral/point_types.h"
 #include "input.h"
@@ -395,10 +393,10 @@ class PandarGeneral_Internal {
    */
   PandarGeneral_Internal(
       std::string device_ip, uint16_t lidar_port, uint16_t lidar_algorithm_port, uint16_t gps_port,
-      boost::function<void(boost::shared_ptr<PPointCloud>, double)>
+      std::function<void(std::shared_ptr<PPointCloud>, double)>
           pcl_callback,
-          boost::function<void(HS_Object3D_Object_List*)> algorithm_callback,
-          boost::function<void(double)> gps_callback, 
+          std::function<void(HS_Object3D_Object_List*)> algorithm_callback,
+          std::function<void(double)> gps_callback, 
           uint16_t start_angle, int tz, int pcl_type, std::string lidar_type, std::string frame_id, std::string timestampType,
           std::string lidar_correction_file, std::string multicast_ip, bool coordinate_correction_flag);
 
@@ -413,7 +411,7 @@ class PandarGeneral_Internal {
    */
   PandarGeneral_Internal(
       std::string pcap_path, \
-      boost::function<void(boost::shared_ptr<PPointCloud>, double)> \
+      std::function<void(std::shared_ptr<PPointCloud>, double)> \
       pcl_callback, uint16_t start_angle, int tz, int pcl_type, \
       std::string lidar_type, std::string frame_id, std::string timestampType, bool coordinate_correction_flag);// the default timestamp type is LiDAR time
   ~PandarGeneral_Internal();
@@ -506,23 +504,23 @@ class PandarGeneral_Internal {
 
   int ParseGPS(PandarGPS *packet, const uint8_t *recvbuf, const int size);
   void CalcPointXYZIT(Pandar40PPacket *pkt, int blockid,
-                      boost::shared_ptr<PPointCloud> cld);
+                      std::shared_ptr<PPointCloud> cld);
   void CalcL64PointXYZIT(HS_LIDAR_L64_Packet *pkt, int blockid, char chLaserNumber,
-                      boost::shared_ptr<PPointCloud> cld);
+                      std::shared_ptr<PPointCloud> cld);
   void CalcL20PointXYZIT(HS_LIDAR_L20_Packet *pkt, int blockid, char chLaserNumber,
-                      boost::shared_ptr<PPointCloud> cld);
+                      std::shared_ptr<PPointCloud> cld);
   void CalcQTPointXYZIT(HS_LIDAR_QT_Packet *pkt, int blockid, char chLaserNumber,
-                      boost::shared_ptr<PPointCloud> cld);
+                      std::shared_ptr<PPointCloud> cld);
   void CalcXTPointXYZIT(HS_LIDAR_XT_Packet *pkt, int blockid, char chLaserNumber,
-                      boost::shared_ptr<PPointCloud> cld);
+                      std::shared_ptr<PPointCloud> cld);
   void FillPacket(const uint8_t *buf, const int len, double timestamp);
 
-  void EmitBackMessege(char chLaserNumber, boost::shared_ptr<PPointCloud> cld);
+  void EmitBackMessege(char chLaserNumber, std::shared_ptr<PPointCloud> cld);
   void SetEnvironmentVariableTZ();
   pthread_mutex_t lidar_lock_;
   sem_t lidar_sem_;
-  boost::thread *lidar_recv_thr_;
-  boost::thread *lidar_process_thr_;
+  std::thread *lidar_recv_thr_;
+  std::thread *lidar_process_thr_;
   bool enable_lidar_recv_thr_;
   bool enable_lidar_process_thr_;
   int start_angle_;
@@ -531,8 +529,8 @@ class PandarGeneral_Internal {
   uint16_t m_u16LidarAlgorithmPort;
   pthread_mutex_t m_mutexAlgorithmListLock;
   sem_t m_semAlgorithmList;
-  boost::thread *m_threadLidarAlgorithmRecv;
-  boost::thread *m_threadLidarAlgorithmProcess;
+  std::thread *m_threadLidarAlgorithmRecv;
+  std::thread *m_threadLidarAlgorithmProcess;
   bool m_bEnableLidarAlgorithmRecvThread;
   bool m_bEnableLidarAlgorithmProcessThread;
   bool m_bGetVersion;
@@ -541,15 +539,19 @@ class PandarGeneral_Internal {
   int m_iHeaderSize;
   int m_iRegularInfoLen;
   std::list<PandarPacket> m_listAlgorithmPacket;
-  boost::shared_ptr<Input> m_spAlgorithmPktInput;
-  boost::function<void(HS_Object3D_Object_List*)> m_fAlgorithmCallback;
+  std::shared_ptr<Input> m_spAlgorithmPktInput;
+  std::function<void(HS_Object3D_Object_List*)> m_fAlgorithmCallback;
+  std::atomic<bool> lidar_recv_thread_exit_ = false;
+  std::atomic<bool> lidar_process_thread_exit_ = false;
+  std::atomic<bool> lidar_algo_process_thread_exit_ = false;
+  std::atomic<bool> lidar_algo_recv_thread_exit_ = false;
 
   std::list<struct PandarPacket_s> lidar_packets_;
 
-  boost::shared_ptr<Input> input_;
-  boost::function<void(boost::shared_ptr<PPointCloud> cld, double timestamp)>
+  std::shared_ptr<Input> input_;
+  std::function<void(std::shared_ptr<PPointCloud> cld, double timestamp)>
       pcl_callback_;
-  boost::function<void(double timestamp)> gps_callback_;
+  std::function<void(double timestamp)> gps_callback_;
 
   float sin_lookup_table_[ROTATION_MAX_UNITS];
   float cos_lookup_table_[ROTATION_MAX_UNITS];

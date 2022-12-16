@@ -84,9 +84,9 @@ static int iPointCloudIndex = 0;
 
 PandarGeneral_Internal::PandarGeneral_Internal(
     std::string device_ip, uint16_t lidar_port, uint16_t lidar_algorithm_port, uint16_t gps_port,
-    boost::function<void(boost::shared_ptr<PPointCloud>, double)> pcl_callback,
-    boost::function<void(HS_Object3D_Object_List*)> algorithm_callback,
-    boost::function<void(double)> gps_callback, uint16_t start_angle, int tz,
+    std::function<void(std::shared_ptr<PPointCloud>, double)> pcl_callback,
+    std::function<void(HS_Object3D_Object_List*)> algorithm_callback,
+    std::function<void(double)> gps_callback, uint16_t start_angle, int tz,
     int pcl_type, std::string lidar_type, std::string frame_id, std::string timestampType,
     std::string lidar_correction_file, std::string multicast_ip, bool coordinate_correction_flag) {
       // LOG_FUNC();
@@ -142,7 +142,7 @@ PandarGeneral_Internal::PandarGeneral_Internal(
 }
 
 PandarGeneral_Internal::PandarGeneral_Internal(std::string pcap_path, \
-    boost::function<void(boost::shared_ptr<PPointCloud>, double)> \
+    std::function<void(std::shared_ptr<PPointCloud>, double)> \
     pcl_callback, uint16_t start_angle, int tz, int pcl_type, \
     std::string lidar_type, std::string frame_id, \
     std::string timestampType, bool coordinate_correction_flag) {
@@ -668,21 +668,21 @@ void PandarGeneral_Internal::Start() {
   Stop();
   enable_lidar_recv_thr_ = true;
   enable_lidar_process_thr_ = true;
-  lidar_process_thr_ = new boost::thread(
-      boost::bind(&PandarGeneral_Internal::ProcessLiarPacket, this));
+  lidar_process_thr_ = new std::thread(
+      std::bind(&PandarGeneral_Internal::ProcessLiarPacket, this));
 
   if (connect_lidar_) {
     lidar_recv_thr_ =
-        new boost::thread(boost::bind(&PandarGeneral_Internal::RecvTask, this));
+        new std::thread(std::bind(&PandarGeneral_Internal::RecvTask, this));
   } else {
-    pcap_reader_->start(boost::bind(&PandarGeneral_Internal::FillPacket, this, _1, _2, _3));
+    pcap_reader_->start(std::bind(&PandarGeneral_Internal::FillPacket, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
   }
 
   if(0 != m_u16LidarAlgorithmPort) {
     m_bEnableLidarAlgorithmRecvThread = true;
     m_bEnableLidarAlgorithmProcessThread = true;
-    m_threadLidarAlgorithmProcess = new boost::thread(boost::bind(&PandarGeneral_Internal::ProcessAlgorithmPacket, this));
-    m_threadLidarAlgorithmRecv = new boost::thread(boost::bind(&PandarGeneral_Internal::recvAlgorithmPacket, this));
+    m_threadLidarAlgorithmProcess = new std::thread(std::bind(&PandarGeneral_Internal::ProcessAlgorithmPacket, this));
+    m_threadLidarAlgorithmRecv = new std::thread(std::bind(&PandarGeneral_Internal::recvAlgorithmPacket, this));
   }
 }
 
@@ -693,14 +693,17 @@ void PandarGeneral_Internal::Stop() {
   m_bEnableLidarAlgorithmProcessThread = false;
 
   if (lidar_process_thr_) {
-    lidar_process_thr_->interrupt();
+    // lidar_process_thr_->interrupt();
+    lidar_process_thread_exit_ = true;
     lidar_process_thr_->join();
     delete lidar_process_thr_;
     lidar_process_thr_ = NULL;
   }
 
   if (lidar_recv_thr_) {
-    lidar_recv_thr_->interrupt();
+    
+    // lidar_recv_thr_->interrupt();
+    lidar_recv_thread_exit_ = true;
     lidar_recv_thr_->join();
     delete lidar_recv_thr_;
     lidar_recv_thr_ = NULL;
@@ -711,14 +714,16 @@ void PandarGeneral_Internal::Stop() {
   }
 
   if(m_bEnableLidarAlgorithmRecvThread) {
-    m_threadLidarAlgorithmRecv->interrupt();
+       lidar_algo_recv_thread_exit_ = true;
+    // m_threadLidarAlgorithmRecv->interrupt();
         m_threadLidarAlgorithmRecv->join();
         delete m_threadLidarAlgorithmRecv;
         m_threadLidarAlgorithmRecv = NULL;
     }
 
     if(m_bEnableLidarAlgorithmProcessThread) {
-      m_threadLidarAlgorithmProcess->interrupt();
+      // m_threadLidarAlgorithmProcess->interrupt();
+        lidar_algo_process_thread_exit_ = true;
         m_threadLidarAlgorithmProcess->join();
         delete m_threadLidarAlgorithmProcess;
         m_threadLidarAlgorithmProcess = NULL;
@@ -741,7 +746,11 @@ void PandarGeneral_Internal::RecvTask() {
   printf("publishRawDataThread:get thead %lu, policy %d and priority %d\n",
            pthread_self(), ret_policy, param.sched_priority);
   while (enable_lidar_recv_thr_) {
-    boost::this_thread::interruption_point();
+    // std::this_thread::interruption_point();
+    if(lidar_recv_thread_exit_.load()){
+      lidar_recv_thread_exit_ = false;
+      return;
+    }
     PandarPacket pkt;
     int rc = input_->getPacket(&pkt);
     if (rc == -1) {
@@ -776,10 +785,14 @@ void PandarGeneral_Internal::ProcessLiarPacket() {
   struct timespec ts;
   int ret = 0;
 
-  boost::shared_ptr<PPointCloud> outMsg(new PPointCloud());
+  std::shared_ptr<PPointCloud> outMsg(new PPointCloud());
 
   while (enable_lidar_process_thr_) {
-    boost::this_thread::interruption_point();
+    if(lidar_process_thread_exit_.load()){
+      lidar_process_thread_exit_ = false;
+      return;
+    }
+    // std::this_thread::interruption_point();
     if (!m_PacketsBuffer.hasEnoughPackets()) {
       usleep(1000);
       continue;
@@ -1456,7 +1469,7 @@ int PandarGeneral_Internal::ParseGPS(PandarGPS *packet, const uint8_t *recvbuf, 
 }
 
 void PandarGeneral_Internal::CalcPointXYZIT(Pandar40PPacket *pkt, int blockid,
-                                        boost::shared_ptr<PPointCloud> cld) {
+                                        std::shared_ptr<PPointCloud> cld) {
   Pandar40PBlock *block = &pkt->blocks[blockid];
 
 
@@ -1511,7 +1524,7 @@ void PandarGeneral_Internal::CalcPointXYZIT(Pandar40PPacket *pkt, int blockid,
 }
 
 void PandarGeneral_Internal::CalcL64PointXYZIT(HS_LIDAR_L64_Packet *pkt, int blockid, \
-    char chLaserNumber, boost::shared_ptr<PPointCloud> cld) {
+    char chLaserNumber, std::shared_ptr<PPointCloud> cld) {
   HS_LIDAR_L64_Block *block = &pkt->blocks[blockid];
 
   for (int i = 0; i < chLaserNumber; ++i) {
@@ -1567,7 +1580,7 @@ void PandarGeneral_Internal::CalcL64PointXYZIT(HS_LIDAR_L64_Packet *pkt, int blo
 }
 
 void PandarGeneral_Internal::CalcL20PointXYZIT(HS_LIDAR_L20_Packet *pkt, int blockid, \
-    char chLaserNumber, boost::shared_ptr<PPointCloud> cld) {
+    char chLaserNumber, std::shared_ptr<PPointCloud> cld) {
   HS_LIDAR_L20_Block *block = &pkt->blocks[blockid];
 
   for (int i = 0; i < chLaserNumber; ++i) {
@@ -1635,7 +1648,7 @@ void PandarGeneral_Internal::CalcL20PointXYZIT(HS_LIDAR_L20_Packet *pkt, int blo
 
 // QT
 void PandarGeneral_Internal::CalcQTPointXYZIT(HS_LIDAR_QT_Packet *pkt, int blockid, \
-    char chLaserNumber, boost::shared_ptr<PPointCloud> cld) {
+    char chLaserNumber, std::shared_ptr<PPointCloud> cld) {
   HS_LIDAR_QT_Block *block = &pkt->blocks[blockid];
 
 
@@ -1750,7 +1763,7 @@ void PandarGeneral_Internal::CalcQTPointXYZIT(HS_LIDAR_QT_Packet *pkt, int block
 }
 
 void PandarGeneral_Internal::CalcXTPointXYZIT(HS_LIDAR_XT_Packet *pkt, int blockid, \
-    char chLaserNumber, boost::shared_ptr<PPointCloud> cld) {
+    char chLaserNumber, std::shared_ptr<PPointCloud> cld) {
   HS_LIDAR_XT_Block *block = &pkt->blocks[blockid];
 
   for (int i = 0; i < chLaserNumber; ++i) {
@@ -1827,7 +1840,7 @@ void PandarGeneral_Internal::CalcXTPointXYZIT(HS_LIDAR_XT_Packet *pkt, int block
   }
 }
 
-  void PandarGeneral_Internal::EmitBackMessege(char chLaserNumber, boost::shared_ptr<PPointCloud> cld) {
+  void PandarGeneral_Internal::EmitBackMessege(char chLaserNumber, std::shared_ptr<PPointCloud> cld) {
     if (pcl_type_) {
       for (int i=0; i<chLaserNumber; i++) {
         for (int j=0; j<PointCloudList[i].size(); j++) {
@@ -1855,7 +1868,11 @@ void PandarGeneral_Internal::CalcXTPointXYZIT(HS_LIDAR_XT_Packet *pkt, int block
 
 void PandarGeneral_Internal::recvAlgorithmPacket() {
     while(m_bEnableLidarAlgorithmRecvThread) {
-      boost::this_thread::interruption_point();
+      // std::this_thread::interruption_point();
+      if(lidar_algo_recv_thread_exit_.load()){
+        lidar_algo_recv_thread_exit_ = false;
+        return;
+      }
         PandarPacket pkt;
         int rc = m_spAlgorithmPktInput->getPacket(&pkt);
         if(0 == rc) {
@@ -1871,8 +1888,11 @@ void PandarGeneral_Internal::ProcessAlgorithmPacket() {
     int totalPacketOfOneFrame = 0;
     int packetNumber = 0;
     while(m_threadLidarAlgorithmProcess) {
-      boost::this_thread::interruption_point();
-
+      // std::this_thread::interruption_point();
+        if(lidar_algo_process_thread_exit_.load()){
+          lidar_algo_process_thread_exit_ = false;
+          return;
+        }
         PandarPacket packet;
         if(0 != popAlgorithmData(&packet)) {
             continue;
