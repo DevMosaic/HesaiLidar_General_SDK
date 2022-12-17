@@ -36,6 +36,7 @@
 #include "src/util.h"
 
 #define DEFAULT_TIMEOUT 10 /*secondes waitting for read/write*/
+#define CONNECT_TIMEOUT 1
 
 int sys_readn(int fd, void* vptr, int n) {
   // printf("start sys_readn: %d....\n", n);
@@ -88,8 +89,11 @@ int sys_writen(int fd, const void* vptr, int n) {
 int tcp_open(const char* ipaddr, int port) {
   int sockfd;
   struct sockaddr_in servaddr;
-
+  printf("got here\n");
+  fflush(stdout);
   if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1) return -1;
+  printf("after fd\n");
+  fflush(stdout);
 
   bzero(&servaddr, sizeof(servaddr));
   servaddr.sin_family = AF_INET;
@@ -98,13 +102,36 @@ int tcp_open(const char* ipaddr, int port) {
     close(sockfd);
     return -1;
   }
+  
+  fcntl(sockfd, F_SETFL, O_NONBLOCK);
 
-  if (connect(sockfd, (struct sockaddr*)&servaddr, sizeof(servaddr)) == -1) {
-    close(sockfd);
-    return -1;
+  connect(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr));
+
+  printf("after connect \n");
+  fflush(stdout);
+  fd_set fdset;
+  struct timeval tv;
+
+  FD_ZERO(&fdset);
+  FD_SET(sockfd, &fdset);
+  tv.tv_sec = CONNECT_TIMEOUT;             /* 10 second timeout */
+  tv.tv_usec = 0;
+
+  if (select(sockfd + 1, NULL, &fdset, NULL, &tv) == 1)
+  {
+      int so_error;
+      socklen_t len = sizeof so_error;
+
+      getsockopt(sockfd, SOL_SOCKET, SO_ERROR, &so_error, &len);
+
+      if (so_error == 0) {
+          printf("%s:%d is open\n", ipaddr, port);
+          
+          return sockfd;
+      }
   }
 
-  return sockfd;
+  return -1;
 }
 
 /**

@@ -16,7 +16,6 @@
 
 #include "pandarGeneral_sdk/pandarGeneral_sdk.h"
 #include "src/tcp_command_client.h"
-#include "yaml-cpp/yaml.h"
 #include "log.h"
 #include "version.h"
 #include <fstream>
@@ -67,6 +66,7 @@ PandarGeneralSDK::PandarGeneralSDK(\
 
 PandarGeneralSDK::~PandarGeneralSDK() {
   Stop();
+
   if (pandarGeneral_) {
     delete pandarGeneral_;
   }
@@ -109,10 +109,11 @@ void PandarGeneralSDK::Start() {
 
 void PandarGeneralSDK::Stop() {
   if (pandarGeneral_) pandarGeneral_->Stop();
-
   enable_get_calibration_thr_ = false;
   if (get_calibration_thr_) {
     get_calibration_thr_->join();
+    delete get_calibration_thr_;
+    get_calibration_thr_ = NULL;
   }
 }
 

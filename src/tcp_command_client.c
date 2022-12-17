@@ -151,6 +151,7 @@ static PTC_ErrCode tcpCommandClient_SendCmd(TcpCommandClient* client,
   }
 
   pthread_mutex_lock(&client->lock);
+
   int fd = tcp_open(client->ip, client->port);
   if (fd < 0) {
     pthread_mutex_unlock(&client->lock);
@@ -198,6 +199,7 @@ static PTC_ErrCode tcpCommandClient_SendCmd(TcpCommandClient* client,
 
   close(fd);
   pthread_mutex_unlock(&client->lock);
+  
   return PTC_ERROR_NO_ERROR;
 }
 
@@ -287,8 +289,8 @@ PTC_ErrCode TcpCommandGetCalibration(const void* handle, char** buffer,
   return cmd.header.ret_code;
 }
 PTC_ErrCode TcpCommandGetLidarCalibration(const void* handle, char** buffer,
-                                          unsigned int* len) {
-  printf("buffer is: %s,len is: %d\n",buffer,len);
+                                          uint32_t* len) {
+  printf("buffer is: %s,len is: %u\n",buffer,len);
   if (!handle || !buffer || !len) {
     printf("Bad Parameter!!!\n");
     return PTC_ERROR_BAD_PARAMETER;
@@ -314,7 +316,6 @@ PTC_ErrCode TcpCommandGetLidarCalibration(const void* handle, char** buffer,
 
   *buffer = ret_str;
   *len = cmd.ret_size + 1;
-
   return cmd.header.ret_code;
 }
 

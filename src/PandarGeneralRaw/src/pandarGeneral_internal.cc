@@ -15,6 +15,8 @@
  *****************************************************************************/
 
 #include <sstream>
+#include <pthread.h>
+#include <semaphore.h>
 
 #include "input.h"
 #include "pandarGeneral_internal.h"

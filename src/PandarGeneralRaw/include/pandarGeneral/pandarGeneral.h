@@ -17,11 +17,11 @@
 #ifndef INCLUDE_PANDARGENERAL_H_
 #define INCLUDE_PANDARGENERAL_H_
 
-#include <pcl/io/pcd_io.h>
 #include <pcl/point_types.h>
 #include <pthread.h>
 #include <semaphore.h>
 #include <functional>
+#include <fstream>
 
 #include <string>
 

@@ -6,7 +6,7 @@
 #include "log.h"
 #include <map>
 #include <functional>
-#include "../util.h"
+#include "util.h"
 
 #define PKT_HEADER_SIZE (42)
 

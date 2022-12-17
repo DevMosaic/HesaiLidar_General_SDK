@@ -16,7 +16,7 @@
 
 #include <functional>
 #include <thread> 
-#include "pcap.h"
+#include "pcap/pcap.h"
 #include <map>
 #include <string>
 #include <atomic> 

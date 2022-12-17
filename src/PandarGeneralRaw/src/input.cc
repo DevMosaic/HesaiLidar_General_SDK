@@ -25,7 +25,7 @@
 #include <iostream>
 #include <sstream>
 #include <time.h>
-#include "../util.h"
+#include "util.h"
 
 #include "input.h"
 #include "log.h"
