@@ -24,6 +24,7 @@
 #include <list>
 #include <string>
 #include <atomic>
+#include <array>
 
 #include "pandarGeneral/point_types.h"
 #include "input.h"

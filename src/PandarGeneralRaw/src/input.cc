@@ -30,6 +30,7 @@
 #include "input.h"
 #include "log.h"
 
+
 Input::Input(uint16_t port, uint16_t gpsPort, std::string multicast_ip) {
   // LOG_D("port: %d, gpsPort: %d", port,gpsPort);
   socketForLidar = -1;
@@ -63,7 +64,7 @@ Input::Input(uint16_t port, uint16_t gpsPort, std::string multicast_ip) {
     }
   }
 
-  if (fcntl(socketForLidar, F_SETFL, O_NONBLOCK | FASYNC) < 0) {
+  if (fcntl(socketForLidar, F_SETFL, O_NONBLOCK | O_ASYNC) < 0) {
     perror("non-block");
     return;
   }
@@ -104,7 +105,7 @@ Input::Input(uint16_t port, uint16_t gpsPort, std::string multicast_ip) {
     return;
   }
 
-  if (fcntl(socketForGPS, F_SETFL, O_NONBLOCK | FASYNC) < 0) {
+  if (fcntl(socketForGPS, F_SETFL, O_NONBLOCK | O_ASYNC) < 0) {
     perror("non-block");
     return;
   }

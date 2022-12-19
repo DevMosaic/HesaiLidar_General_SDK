@@ -32,6 +32,7 @@
 #include <sys/types.h>
 #include <syslog.h>
 #include <unistd.h>
+#include <sys/select.h>
 
 #include "src/util.h"
 
@@ -89,11 +90,7 @@ int sys_writen(int fd, const void* vptr, int n) {
 int tcp_open(const char* ipaddr, int port) {
   int sockfd;
   struct sockaddr_in servaddr;
-  printf("got here\n");
-  fflush(stdout);
   if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1) return -1;
-  printf("after fd\n");
-  fflush(stdout);
 
   bzero(&servaddr, sizeof(servaddr));
   servaddr.sin_family = AF_INET;
@@ -107,8 +104,6 @@ int tcp_open(const char* ipaddr, int port) {
 
   connect(sockfd, (struct sockaddr *)&servaddr, sizeof(servaddr));
 
-  printf("after connect \n");
-  fflush(stdout);
   fd_set fdset;
   struct timeval tv;
 
